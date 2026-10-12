@@ -1,117 +1,103 @@
-import html
-import os
-import re
-from typing import List
+# telegram-code-catcher
 
-from dotenv import load_dotenv
-from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+A Telegram bot that detects and extracts code snippets from text messages and screenshots, stores them in a local SQLite database, and exposes a small dashboard to review recent captures.
 
-load_dotenv()
+## Features
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+- Detects fenced code blocks like ```python ... ```
+- Detects inline code snippets like `print("hello")`
+- Extracts code from screenshots using OCR
+- Saves snippets into SQLite for later review
+- Includes `/start`, `/help`, `/extract`, `/history`, and `/stats`
+- Runs a lightweight Flask dashboard at `/`
+- Ready for Docker deployment
 
-FENCED_CODE_RE = re.compile(r"```(?:\w+)?\s*\n?(.*?)\s*```", re.DOTALL)
-INLINE_CODE_RE = re.compile(r"`([^`]+)`")
+## Project structure
 
+- `main.py` — starts the bot and optional dashboard
+- `bot.py` — main Telegram bot logic
+- `db.py` — SQLite database helpers
+- `dashboard.py` — Flask dashboard
+- `templates/index.html` — dashboard layout
+- `requirements.txt` — Python dependencies
+- `.env.example` — environment setup
+- `Dockerfile` — deployment container
+- `docker-compose.yml` — multi-container setup
 
-def extract_code_from_text(message: str) -> List[str]:
-    snippets: List[str] = []
+## Quick start
 
-    for match in FENCED_CODE_RE.finditer(message):
-        code = match.group(1).strip()
-        if code:
-            snippets.append(code)
+1. Create a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
 
-    if not snippets:
-        for match in INLINE_CODE_RE.finditer(message):
-            code = match.group(1).strip()
-            if code:
-                snippets.append(code)
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-    return snippets
+3. Set your Telegram token:
+   ```bash
+   cp .env.example .env
+   ```
 
+   Then update `.env`:
+   ```env
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   START_WEB_DASHBOARD=true
+   WEB_PORT=5000
+   ```
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "Hi! Send me code in a message or reply to a message with /extract.\n"
-        "I can catch fenced and inline code blocks."
-    )
+4. Start the bot:
+   ```bash
+   python main.py
+   ```
 
+5. Open the dashboard at:
+   ```text
+   http://localhost:5000
+   ```
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "Commands:\n"
-        "- /start - welcome message\n"
-        "- /help - show this help\n"
-        "- /extract - scan the current message or the replied-to message for code"
-    )
+## OCR support
 
+To read text from screenshots, install Tesseract OCR on your system:
 
-async def extract_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.effective_message
-    source_text = ""
+- macOS: `brew install tesseract`
+- Ubuntu/Debian: `sudo apt-get install tesseract-ocr`
+- Windows: install from https://github.com/tesseract-ocr/tesseract
 
-    if message.reply_to_message and message.reply_to_message.text:
-        source_text = message.reply_to_message.text
-    elif message.reply_to_message and message.reply_to_message.caption:
-        source_text = message.reply_to_message.caption
-    else:
-        source_text = message.text or ""
+## Telegram usage
 
-    if source_text.startswith("/extract"):
-        source_text = source_text[len("/extract"):].strip()
+Examples:
 
-    snippets = extract_code_from_text(source_text)
+```python
+print("hello from Telegram")
+```
 
-    if not snippets:
-        await message.reply_text("No code snippets found in that message.")
-        return
+Or:
 
-    payload = "\n\n---\n\n".join(
-        f"<pre><code>{html.escape(snippet)}</code></pre>" for snippet in snippets
-    )
-    await message.reply_text(payload, parse_mode=ParseMode.HTML)
+```bash
+git clone https://github.com/example/repo.git
+```
 
+The bot will detect those snippets and save them.
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.effective_message
-    text = message.text or message.caption or ""
+## Deployment
 
-    if not text:
-        return
+You can run with Docker:
 
-    if text.startswith("/"):
-        return
+```bash
+docker build -t telegram-code-catcher .
+docker run --env-file .env -p 5000:5000 telegram-code-catcher
+```
 
-    snippets = extract_code_from_text(text)
+Or with Docker Compose:
 
-    if not snippets:
-        return
+```bash
+docker-compose up --build
+```
 
-    payload = "\n\n---\n\n".join(
-        f"<pre><code>{html.escape(snippet)}</code></pre>" for snippet in snippets
-    )
-    await message.reply_text(payload, parse_mode=ParseMode.HTML)
+## License
 
-
-def main() -> None:
-    if not BOT_TOKEN:
-        raise ValueError("TELEGRAM_BOT_TOKEN is not set. Add it to your .env file.")
-
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("extract", extract_command))
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
-    )
-
-    print("Bot started. Press Ctrl+C to stop.")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-
-if __name__ == "__main__":
-    main()
+MIT

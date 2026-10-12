@@ -1,80 +1,18 @@
-import sqlite3
-from typing import Dict, List
+from flask import Flask, render_template
 
-DB_PATH = "code_snippets.db"
-
-
-def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
+from db import fetch_recent
 
 
-def init_db() -> None:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS snippets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                username TEXT,
-                chat_id INTEGER NOT NULL,
-                source TEXT NOT NULL,
-                language TEXT,
-                code TEXT NOT NULL,
-                raw_text TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.commit()
+def create_app() -> Flask:
+    app = Flask(__name__, template_folder="templates")
 
+    @app.route("/")
+    def index():
+        snippets = fetch_recent(limit=20)
+        return render_template("index.html", snippets=snippets)
 
-def save_snippet(
-    user_id: int,
-    username: str,
-    chat_id: int,
-    source: str,
-    code: str,
-    language: str,
-    raw_text: str,
-) -> None:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO snippets (user_id, username, chat_id, source, language, code, raw_text)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, username, chat_id, source, language, code, raw_text),
-        )
-        connection.commit()
+    @app.route("/health")
+    def health():
+        return {"status": "ok"}
 
-
-def fetch_recent(limit: int = 10) -> List[Dict[str, str]]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            """
-            SELECT id, user_id, username, chat_id, source, language, code, raw_text, created_at
-            FROM snippets
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
-        return [dict(row) for row in rows]
-
-
-def get_stats() -> Dict[str, object]:
-    with get_connection() as connection:
-        total = connection.execute("SELECT COUNT(*) as count FROM snippets").fetchone()["count"]
-        language_rows = connection.execute(
-            """
-            SELECT language, COUNT(*) as count
-            FROM snippets
-            GROUP BY language
-            ORDER BY count DESC
-            """
-        ).fetchall()
-
-        languages = {row["language"] or "text": row["count"] for row in language_rows}
-        return {"total": total, "languages": languages}
+    return app

@@ -1,13 +1,21 @@
-version: "3.9"
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 
-services:
-  telegram-code-catcher:
-    build: .
-    env_file:
-      - .env
-    ports:
-      - "5000:5000"
-    environment:
-      - START_WEB_DASHBOARD=true
-      - WEB_PORT=5000
-    restart: unless-stopped
+# Virtual environments
+.venv/
+venv/
+
+# Local environment files
+.env
+code_snippets.db
+
+# Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,18 +1,77 @@
-from flask import Flask, render_template
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram Code Catcher</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-alt: #020617;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #334155;
+        --accent: #38bdf8;
+      }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1100px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        margin-bottom: 1.5rem;
+      }
+      .snippet {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-bottom: 0.7rem;
+      }
+      pre {
+        margin: 0;
+        background: var(--panel-alt);
+        color: #cbd5e1;
+        border-radius: 8px;
+        padding: 1rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-x: auto;
+      }
+      .empty {
+        color: var(--muted);
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Telegram Code Catcher</h1>
 
-from db import fetch_recent
-
-
-def create_app() -> Flask:
-    app = Flask(__name__, template_folder="templates")
-
-    @app.route("/")
-    def index():
-        snippets = fetch_recent(limit=20)
-        return render_template("index.html", snippets=snippets)
-
-    @app.route("/health")
-    def health():
-        return {"status": "ok"}
-
-    return app
+      {% if snippets %}
+        {% for snippet in snippets %}
+          <div class="snippet">
+            <div class="meta">
+              {{ snippet.created_at }} • {{ snippet.language or 'text' }} • {{ snippet.username or snippet.user_id }}
+            </div>
+            <pre>{{ snippet.code }}</pre>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty">No snippets captured yet.</p>
+      {% endif %}
+    </div>
+  </body>
+</html>
